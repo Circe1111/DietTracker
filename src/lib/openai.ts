@@ -13,11 +13,10 @@
 import { decrypt } from './crypto'
 import { getSettings, incrementApiUsage, getApiUsage } from './storage'
 
-/** OpenAI 兼容 API 端点 */
-const API_ENDPOINT = 'https://api.openai.com/v1'
-
-const VISION_MODEL = 'gpt-4o'
-const PARSE_MODEL = 'gpt-4o-mini'
+/** 默认端点（用户未设置时） */
+const DEFAULT_ENDPOINT = 'https://api.openai.com/v1'
+const DEFAULT_VISION_MODEL = 'gpt-4o'
+const DEFAULT_PARSE_MODEL = 'gpt-4o-mini'
 const MAX_RETRIES = 2
 
 /** 食物识别返回结构 */
@@ -58,6 +57,8 @@ async function callOpenAI(
   maxTokens = 1000
 ): Promise<string> {
   const apiKey = await getDecryptedKey()
+  const settings = await getSettings()
+  const endpoint = settings.apiEndpoint || DEFAULT_ENDPOINT
 
   // 检查日用量限制
   const usage = await getApiUsage()
@@ -69,7 +70,9 @@ async function callOpenAI(
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const res = await fetch(`${API_ENDPOINT}/chat/completions`, {
+      // 清理端点末尾的斜杠，确保 URL 格式正确
+      const base = endpoint.replace(/\/+$/, '')
+      const res = await fetch(`${base}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,6 +151,9 @@ function extractJSON(text: string): unknown {
  * @param base64Image - 图片的 base64 数据（不含 data:image 前缀）
  */
 export async function recognizeFood(base64Image: string): Promise<FoodRecognition> {
+  const settings = await getSettings()
+  const model = settings.visionModel || DEFAULT_VISION_MODEL
+
   const content = await callOpenAI(
     [
       {
@@ -169,7 +175,7 @@ export async function recognizeFood(base64Image: string): Promise<FoodRecognitio
         ],
       },
     ],
-    VISION_MODEL,
+    model,
     500
   )
 
@@ -193,6 +199,9 @@ export async function recognizeFood(base64Image: string): Promise<FoodRecognitio
 export async function parseIngredients(
   ingredientsText: string
 ): Promise<IngredientParse> {
+  const settings = await getSettings()
+  const model = settings.parseModel || DEFAULT_PARSE_MODEL
+
   const content = await callOpenAI(
     [
       {
@@ -205,7 +214,7 @@ export async function parseIngredients(
         content: `根据以下配料表，估算每100g的营养成分，返回 JSON：\n\n{\n  "name": "食物名称",\n  "calories": 200,\n  "protein": 10,\n  "fat": 8,\n  "carbs": 25\n}\n\n配料表：\n${ingredientsText}`,
       },
     ],
-    PARSE_MODEL,
+    model,
     500
   )
 
@@ -222,10 +231,13 @@ export async function parseIngredients(
 
 /**
  * 检查 API Key 是否有效
+ * @param apiKey - API Key
+ * @param endpoint - API 端点地址（如 https://api.deepseek.com/v1）
  */
-export async function testApiKey(apiKey: string): Promise<boolean> {
+export async function testApiKey(apiKey: string, endpoint?: string): Promise<boolean> {
   try {
-    const res = await fetch(`${API_ENDPOINT}/models`, {
+    const base = (endpoint || DEFAULT_ENDPOINT).replace(/\/+$/, '')
+    const res = await fetch(`${base}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     })
     return res.ok

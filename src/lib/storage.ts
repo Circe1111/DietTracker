@@ -36,6 +36,9 @@ export interface UserSettings {
   setupComplete: boolean
   dailyCalorieBudget: number
   macroTargets: { protein: number; fat: number; carbs: number } // grams
+  apiEndpoint: string // OpenAI 兼容 API 端点
+  visionModel: string // 视觉识别模型名
+  parseModel: string // 文本解析模型名
   createdAt: number
   updatedAt: number
 }
@@ -162,6 +165,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   setupComplete: false,
   dailyCalorieBudget: 2000,
   macroTargets: { protein: 100, fat: 55, carbs: 275 },
+  apiEndpoint: 'https://api.openai.com/v1',
+  visionModel: 'gpt-4o',
+  parseModel: 'gpt-4o-mini',
   createdAt: Date.now(),
   updatedAt: Date.now(),
 }

@@ -17,22 +17,32 @@ const STEPS = ['API Key', '个人信息', '饮食框架', '计划生成']
 function StepApiKey({
   value,
   onChange,
+  endpoint,
+  onEndpointChange,
   onTest,
   testing,
   testResult,
 }: {
   value: string
   onChange: (v: string) => void
+  endpoint: string
+  onEndpointChange: (v: string) => void
   onTest: () => void
   testing: boolean
   testResult: 'idle' | 'success' | 'error'
 }) {
+  // 常见端点预设
+  const presets = [
+    { label: 'OpenAI', url: 'https://api.openai.com/v1' },
+    { label: 'DeepSeek', url: 'https://api.deepseek.com/v1' },
+  ]
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
-      className="space-y-6"
+      className="space-y-5"
     >
       <div className="text-center space-y-2">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-light text-primary mb-2">
@@ -40,23 +50,44 @@ function StepApiKey({
         </div>
         <h2 className="text-display text-foreground">连接 AI</h2>
         <p className="text-body text-muted-foreground">
-          输入你的 OpenAI 兼容 API Key
-          <br />它将被加密存储在本地，绝不外传
+          支持 OpenAI 兼容 API（DeepSeek / 中转站等）
+          <br />Key 加密存储于本地，绝不外传
         </p>
       </div>
       <div className="space-y-3">
-        <Input
-          type="password"
-          placeholder="sk-..."
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value)
-          }}
-          className="glass h-12 text-body rounded-xl px-4"
-        />
+        {/* API 端点 */}
+        <div>
+          <label className="text-caption text-muted-foreground mb-1.5 block">API 端点地址</label>
+          <div className="flex gap-1.5 mb-2">
+            {presets.map(p => (
+              <button key={p.label} type="button" onClick={() => onEndpointChange(p.url)}
+                className={`glass rounded-lg px-3 py-1 text-micro transition-all ${endpoint === p.url ? 'ring-2 ring-primary bg-primary-light text-primary' : 'text-muted-foreground'}`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <Input
+            type="url"
+            placeholder="https://api.openai.com/v1"
+            value={endpoint}
+            onChange={(e) => onEndpointChange(e.target.value)}
+            className="glass h-11 text-caption rounded-xl px-4"
+          />
+        </div>
+        {/* API Key */}
+        <div>
+          <label className="text-caption text-muted-foreground mb-1.5 block">API Key</label>
+          <Input
+            type="password"
+            placeholder="sk-..."
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="glass h-11 text-body rounded-xl px-4"
+          />
+        </div>
         <Button
           onClick={onTest}
-          disabled={!value || testing}
+          disabled={!value || !endpoint || testing}
           variant="outline"
           className="w-full h-11 rounded-xl glass"
         >
@@ -75,23 +106,17 @@ function StepApiKey({
             </span>
           ) : testResult === 'error' ? (
             <span className="flex items-center gap-2 text-destructive">
-              连接失败，请检查 Key
+              连接失败，请检查 Key 和端点
             </span>
           ) : (
             '测试连接'
           )}
         </Button>
         <p className="text-micro text-muted-foreground text-center">
-          还没有 Key？在{' '}
-          <a
-            href="https://platform.openai.com/api-keys"
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary underline"
-          >
-            platform.openai.com
-          </a>{' '}
-          创建
+          没有 Key？{' '}
+          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="text-primary underline">OpenAI</a>
+          {' / '}
+          <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer" className="text-primary underline">DeepSeek</a>
         </p>
       </div>
     </motion.div>
@@ -322,6 +347,7 @@ export default function Setup() {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const [apiKey, setApiKey] = useState('')
+  const [apiEndpoint, setApiEndpoint] = useState('https://api.openai.com/v1')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<'idle' | 'success' | 'error'>('idle')
   const [form, setForm] = useState({ gender: 'male', age: '', height: '', weight: '', targetWeight: '' })
@@ -333,10 +359,11 @@ export default function Setup() {
   const [confirming, setConfirming] = useState(false)
 
   const testApiConnection = useCallback(async () => {
-    if (!apiKey) return
+    if (!apiKey || !apiEndpoint) return
     setTesting(true)
     try {
-      const res = await fetch('https://api.openai.com/v1/models', {
+      const base = apiEndpoint.replace(/\/+$/, '')
+      const res = await fetch(`${base}/models`, {
         headers: { Authorization: `Bearer ${apiKey}` },
       })
       setTestResult(res.ok ? 'success' : 'error')
@@ -345,7 +372,7 @@ export default function Setup() {
     } finally {
       setTesting(false)
     }
-  }, [apiKey])
+  }, [apiKey, apiEndpoint])
 
   const goToPlan = useCallback(() => {
     const profile = getDietProfile(dietProfile)
@@ -364,8 +391,15 @@ export default function Setup() {
     setConfirming(true)
     try {
       const encryptedKey = apiKey ? await encrypt(apiKey) : null
+      // 根据端点智能选择模型名
+      const isDeepSeek = apiEndpoint.includes('deepseek')
+      const visionModel = isDeepSeek ? 'deepseek-chat' : 'gpt-4o'
+      const parseModel = isDeepSeek ? 'deepseek-chat' : 'gpt-4o-mini'
       await saveSettings({
         apiKeyEncrypted: encryptedKey,
+        apiEndpoint,
+        visionModel,
+        parseModel,
         gender: form.gender as 'male' | 'female',
         age: parseInt(form.age) || 25,
         height: parseFloat(form.height) || 170,
@@ -387,10 +421,10 @@ export default function Setup() {
     } finally {
       setConfirming(false)
     }
-  }, [apiKey, form, dietProfile, plan, navigate])
+  }, [apiKey, apiEndpoint, form, dietProfile, plan, navigate])
 
   const canNext = () => {
-    if (step === 0) return apiKey.length > 10 && testResult === 'success'
+    if (step === 0) return apiKey.length > 10 && apiEndpoint.length > 5 && testResult === 'success'
     if (step === 1) return form.age && form.height && form.weight && form.targetWeight
     return true
   }
@@ -414,7 +448,7 @@ export default function Setup() {
 
       <div className="glass bento-card max-w-md mx-auto w-full relative overflow-hidden min-h-[320px]">
         <AnimatePresence mode="wait">
-          {step === 0 && <StepApiKey key="a" value={apiKey} onChange={(v) => { setApiKey(v); setTestResult('idle') }} onTest={testApiConnection} testing={testing} testResult={testResult} />}
+          {step === 0 && <StepApiKey key="a" value={apiKey} onChange={(v) => { setApiKey(v); setTestResult('idle') }} endpoint={apiEndpoint} onEndpointChange={setApiEndpoint} onTest={testApiConnection} testing={testing} testResult={testResult} />}
           {step === 1 && <StepPersonalInfo key="b" form={form} onChange={(k, v) => setForm((f) => ({ ...f, [k]: v }))} />}
           {step === 2 && <StepDietProfile key="c" selected={dietProfile} onSelect={setDietProfile} />}
           {step === 3 && <StepPlan key="d" plan={plan} onConfirm={handleConfirm} confirming={confirming} />}
