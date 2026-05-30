@@ -5,11 +5,5 @@
   "framework": "vite",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "functions": {
-    "api/circle.ts": {
-      "runtime": "@vercel/edge",
-      "maxDuration": 10
-    }
-  }
+  ]
 }
