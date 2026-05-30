@@ -39,6 +39,8 @@ export interface UserSettings {
   apiEndpoint: string // OpenAI 兼容 API 端点
   visionModel: string // 视觉识别模型名
   parseModel: string // 文本解析模型名
+  nickname: string // 用户昵称
+  avatarColor: string // 头像背景色
   createdAt: number
   updatedAt: number
 }
@@ -168,6 +170,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   apiEndpoint: 'https://api.openai.com/v1',
   visionModel: 'gpt-4o',
   parseModel: 'gpt-4o-mini',
+  nickname: '',
+  avatarColor: '#2D9B74',
   createdAt: Date.now(),
   updatedAt: Date.now(),
 }

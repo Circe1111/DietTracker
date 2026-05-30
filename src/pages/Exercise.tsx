@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Clock, Plus, ChevronDown, ChevronUp, Flame, Dumbbell } from 'lucide-react'
+import { Clock, Plus, ChevronDown, ChevronUp, Flame, Dumbbell, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import GlassCard from '@/components/GlassCard'
@@ -51,6 +51,15 @@ export default function Exercise() {
     await load()
     setCustomOpen(false); setCustomName(''); setCustomMet('5'); setDuration(30)
   }, [customName, customMet, duration, weight, load])
+
+  const handleDelete = useCallback(async (index: number) => {
+    const existing = await getTodayExerciseLog()
+    if (!existing) return
+    existing.entries.splice(index, 1)
+    existing.updatedAt = Date.now()
+    await saveExerciseLog(existing)
+    await load()
+  }, [load])
 
   const entries = todayLog?.entries ?? []
   const totalMin = entries.reduce((a, e) => a + e.duration, 0)
@@ -148,12 +157,17 @@ export default function Exercise() {
           </div>
           <div className="space-y-1.5">
             {entries.map((e, i) => (
-              <div key={i} className="flex items-center justify-between text-caption">
+              <div key={i} className="flex items-center justify-between text-caption group">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ['#34d399', '#60a5fa', '#fbbf24', '#f87171', '#a78bfa', '#fb923c'][i % 6] }} />
                   <span>{e.name}</span>
                 </div>
-                <span className="text-muted-foreground">{e.duration}min · {e.caloriesBurned}kcal</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">{e.duration}min · {e.caloriesBurned}kcal</span>
+                  <button onClick={() => handleDelete(i)} className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:text-destructive">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

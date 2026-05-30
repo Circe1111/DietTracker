@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Scale, Key, Download, Upload, Settings2, TrendingDown, TrendingUp, RotateCcw } from 'lucide-react'
+import { Scale, Key, Download, Upload, Settings2, TrendingDown, TrendingUp, RotateCcw, UserCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import GlassCard from '@/components/GlassCard'
@@ -51,11 +51,15 @@ export default function Settings() {
   const [newWeight, setNewWeight] = useState('')
   const [apiUsage, setApiUsage] = useState({ daily: 0, monthly: 0, dailyLimit: 20 })
   const [limitInput, setLimitInput] = useState('20')
+  const [nickname, setNickname] = useState('')
+  const [avatarColor, setAvatarColor] = useState('#2D9B74')
   const [exporting, setExporting] = useState(false)
 
   const load = useCallback(async () => {
     const s = await getSettings()
     setSettings(s)
+    setNickname(s.nickname || '')
+    setAvatarColor(s.avatarColor || '#2D9B74')
     const now = new Date()
     const from = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10)
     const to = now.toISOString().slice(0, 10)
@@ -109,6 +113,11 @@ export default function Settings() {
     input.click()
   }
 
+  const handleSaveProfile = async () => {
+    await saveSettings({ nickname, avatarColor })
+    await load()
+  }
+
   const latestWeight = weights[weights.length - 1]?.weight ?? settings?.weight ?? 70
   const bmi = calcBMI(latestWeight, settings?.height ?? 170)
   const weightDiff = weights.length >= 2 ? latestWeight - weights[weights.length - 2].weight : 0
@@ -118,6 +127,26 @@ export default function Settings() {
   return (
     <div className="space-y-4 pb-6 animate-fade-in">
       <h1 className="text-card-title text-foreground">设置</h1>
+
+      {/* ── Profile ── */}
+      <GlassCard className="space-y-3">
+        <div className="flex items-center gap-2"><UserCircle size={18} className="text-primary" /><span className="text-caption font-semibold">个人资料</span></div>
+        <div className="flex items-center gap-3">
+          <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-display font-bold flex-shrink-0" style={{ backgroundColor: avatarColor }}>
+            {nickname ? nickname.slice(0, 2) : '我'}
+          </div>
+          <div className="flex-1 space-y-2">
+            <Input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="你的昵称" className="glass h-10 rounded-xl text-body" />
+            <div className="flex gap-1.5 flex-wrap">
+              {['#2D9B74','#60a5fa','#f87171','#fbbf24','#a78bfa','#fb923c','#34d399','#f472b6'].map(c => (
+                <button key={c} onClick={() => setAvatarColor(c)} className="w-7 h-7 rounded-full border-2 transition-all"
+                  style={{ backgroundColor: c, borderColor: avatarColor === c ? 'white' : 'transparent', boxShadow: avatarColor === c ? '0 0 0 2px ' + c : 'none' }} />
+              ))}
+            </div>
+          </div>
+        </div>
+        <Button onClick={handleSaveProfile} variant="outline" size="sm" className="rounded-xl w-full">保存资料</Button>
+      </GlassCard>
 
       {/* ── Weight ── */}
       <GlassCard className="space-y-3">
